@@ -1,0 +1,51 @@
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+
+# Language and modern syntax
+Standard: Cpp20
+NamespaceIndentation: All
+SortIncludes: true
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^<itk.*>'
+    Priority: 1
+  - Regex: '^<.*>'
+    Priority: 2
+  - Regex: '.*'
+    Priority: 3
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
+AlignTrailingComments: true
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterControlStatement: false
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: false
+  AfterStruct: true
+  AfterUnion: true
+  BeforeCatch: false
+  BeforeElse: false
+
+SpaceAfterTemplateKeyword: true
+SpacesInAngles: false
+SpaceBeforeParens: ControlStatements
+PointerAlignment: Left
+
+# Comments
+ReflowComments: true
+SpacesBeforeTrailingComments: 2
+
+# C++20 specific
+Cpp11BracedListStyle: true
+SortUsingDeclarations: true
+SpaceBeforeCpp11BracedList: false
+IncludeIsMainRegex: '(_main|_test|\.hpp)$'
