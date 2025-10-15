@@ -34,6 +34,7 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 add_subdirectory(src/io)
 add_subdirectory(src/filters)
 add_subdirectory(src/segmentation)
+add_subdirectory(src/visualization)
 
 
 # Future modules:
