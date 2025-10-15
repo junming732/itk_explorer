@@ -32,6 +32,8 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 # ----------------------------------------------------------------------------
 # Each subdirectory corresponds to a logical module
 add_subdirectory(src/io)
+add_subdirectory(src/filters)
+
 
 # Future modules:
 # add_subdirectory(src/filters)
