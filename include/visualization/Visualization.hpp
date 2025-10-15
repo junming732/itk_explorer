@@ -26,10 +26,11 @@ void exportVolume(const typename TImage::Pointer& image, const std::string& file
 
 // Extract middle slice and save as .png (convert float → uchar)
 template <typename TImage3D>
-void exportSliceToPNG(const typename TImage3D::Pointer& image, const std::string& filename)
+void exportOrthogonalSlicesToPNG(const typename TImage3D::Pointer& image,
+                                 const std::string& outputPrefix)
 {
     constexpr unsigned int Dimension = TImage3D::ImageDimension;
-    static_assert(Dimension == 3, "exportSliceToPNG expects a 3D image.");
+    static_assert(Dimension == 3, "exportOrthogonalSlicesToPNG expects a 3D image.");
 
     using InputPixelType = typename TImage3D::PixelType;
     using SliceType = itk::Image<InputPixelType, 2>;
@@ -38,19 +39,18 @@ void exportSliceToPNG(const typename TImage3D::Pointer& image, const std::string
     using OutputSliceType = itk::Image<unsigned char, 2>;
     using CastType = itk::CastImageFilter<SliceType, OutputSliceType>;
     using WriterType = itk::ImageFileWriter<OutputSliceType>;
-    using StatsType = itk::StatisticsImageFilter<SliceType>;
 
     const auto region = image->GetLargestPossibleRegion();
     const auto size = region.GetSize();
 
-    // --- Step 1: Pick slice with max mean intensity ---
-    double maxMean = 0.0;
-    size_t bestZ = size[2] / 2;
-
-    for (size_t z = size[2] / 4; z < 3 * size[2] / 4; ++z)
+    // A helper lambda to extract and write one slice
+    auto writeSlice = [&](unsigned int axis, size_t index, const std::string& name)
     {
-        itk::Index<3> start = {0, 0, static_cast<long>(z)};
-        itk::Size<3> sliceSize = {size[0], size[1], 0};
+        itk::Index<3> start = {0, 0, 0};
+        itk::Size<3> sliceSize = size;
+
+        start[axis] = static_cast<long>(index);
+        sliceSize[axis] = 0;
         itk::ImageRegion<3> sliceRegion(start, sliceSize);
 
         auto extractor = ExtractType::New();
@@ -59,47 +59,33 @@ void exportSliceToPNG(const typename TImage3D::Pointer& image, const std::string
         extractor->SetDirectionCollapseToSubmatrix();
         extractor->Update();
 
-        auto stats = StatsType::New();
-        stats->SetInput(extractor->GetOutput());
-        stats->Update();
+        auto rescaler = RescaleType::New();
+        rescaler->SetInput(extractor->GetOutput());
+        rescaler->SetOutputMinimum(0);
+        rescaler->SetOutputMaximum(255);
+        rescaler->Update();
 
-        double mean = stats->GetMean();
-        if (mean > maxMean)
-        {
-            maxMean = mean;
-            bestZ = z;
-        }
-    }
+        auto caster = CastType::New();
+        caster->SetInput(rescaler->GetOutput());
+        caster->Update();
 
-    // --- Step 2: Extract best slice ---
-    itk::Index<3> start = {0, 0, static_cast<long>(bestZ)};
-    itk::Size<3> sliceSize = {size[0], size[1], 0};
-    itk::ImageRegion<3> sliceRegion(start, sliceSize);
+        auto writer = WriterType::New();
+        writer->SetFileName(name);
+        writer->SetInput(caster->GetOutput());
+        writer->Update();
 
-    auto extractor = ExtractType::New();
-    extractor->SetInput(image);
-    extractor->SetExtractionRegion(sliceRegion);
-    extractor->SetDirectionCollapseToSubmatrix();
-    extractor->Update();
+        std::cout << "✅ Wrote " << name << " (axis " << axis
+                  << ", index " << index << ")\n";
+    };
 
-    // --- Step 3: Rescale and cast ---
-    auto rescaler = RescaleType::New();
-    rescaler->SetInput(extractor->GetOutput());
-    rescaler->SetOutputMinimum(0);
-    rescaler->SetOutputMaximum(255);
-    rescaler->Update();
+    // Pick roughly the middle of each dimension
+    const size_t xMid = size[0] / 2;
+    const size_t yMid = size[1] / 2;
+    const size_t zMid = size[2] / 2;
 
-    auto caster = CastType::New();
-    caster->SetInput(rescaler->GetOutput());
-    caster->Update();
-
-    auto writer = WriterType::New();
-    writer->SetFileName(filename);
-    writer->SetInput(caster->GetOutput());
-    writer->Update();
-
-    std::cout << "✅ Wrote PNG slice (Z=" << bestZ
-              << ", mean=" << maxMean << "): " << filename << std::endl;
+    writeSlice(2, zMid, outputPrefix + "_axial.png");      // Z-slice
+    writeSlice(1, yMid, outputPrefix + "_coronal.png");    // Y-slice
+    writeSlice(0, xMid, outputPrefix + "_sagittal.png");   // X-slice
 }
 
 

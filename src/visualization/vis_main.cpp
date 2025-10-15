@@ -25,7 +25,8 @@ int main(int argc, char* argv[])
         auto image = reader->GetOutput();
 
         itkexp::exportVolume<ImageType>(image, "output/exported_volume.nrrd");
-        itkexp::exportSliceToPNG<ImageType>(image, "output/exported_slice.png");
+        itkexp::exportOrthogonalSlicesToPNG<ImageType>(image, "output/exported");
+
 
         std::cout << "🏁 Headless visualization complete (no GUI needed)\n";
     }
