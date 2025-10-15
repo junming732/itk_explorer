@@ -35,7 +35,7 @@ add_subdirectory(src/io)
 add_subdirectory(src/filters)
 add_subdirectory(src/segmentation)
 add_subdirectory(src/visualization)
-
+add_subdirectory(src/registration)
 
 # Future modules:
 # add_subdirectory(src/filters)
