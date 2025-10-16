@@ -1,30 +1,37 @@
-# 🧩 ITK Explorer — Stage 6: Image Registration
+# ITK Explorer — Stage 6–7: Registration
 
 ## Overview
-This stage demonstrates **3D image registration** in ITK.
-It aligns a *moving* image to a *fixed* reference image using an affine transform,
-Mean Squares metric, and Regular Step Gradient Descent optimizer.
+This module adds affine, B-spline (deformable), and batch registration to align 3D medical images using ITK 5.2.
 
-## 🔧 Build
+| Executable | Description |
+|-------------|-------------|
+| itk_register | Affine registration |
+| itk_bspline_register | Nonlinear B-spline registration |
+| itk_batch_register | Batch registration across subjects |
+
+## Build
 ```bash
 cmake -S . -B build
-cmake --build build --target itk_register
+cmake --build build --target itk_register itk_bspline_register itk_batch_register -j
 ```
 
-## 🚀 Run
+## Run
+**Affine**
 ```bash
-./build/bin/itk_register data/fixed.nrrd data/moving.nrrd output/registered.nrrd
+./build/bin/itk_register fixed.nii.gz moving.nii.gz output_affine.nrrd
 ```
 
-## 🧠 What Happens
-1. Loads fixed and moving 3D volumes
-2. Performs affine registration
-3. Resamples moving image into fixed space
-4. Saves result as `registered.nrrd`
+**Deformable (B-spline)**
+```bash
+./build/bin/itk_bspline_register fixed.nii.gz moving.nii.gz output_bspline.nrrd 6,6,6
+```
 
-## ✅ Example Output
+**Batch**
+```bash
+./build/bin/itk_batch_register fixed.nii.gz data/IXI-T1 output/batch --bspline 4,4,4
 ```
-🚀 Starting registration...
-✅ Registration finished.
-💾 Registered image written to: output/registered.nrrd
-```
+
+## Notes
+- Uses Mattes Mutual Information (works for inter/intra subject)
+- Outputs .nrrd images viewable in 3D Slicer or ITK-SNAP
+- ITK 5.2 compatible
