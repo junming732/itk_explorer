@@ -254,7 +254,6 @@ namespace Registration {
             optimizer->SetMaximumIteration(params_.maxIterations);
             optimizer->Initialize(params_.initialRadius);
             optimizer->SetEpsilon(1e-6);
-            optimizer->SetMaximize(true);  // Maximize mutual information
 
             // Setup registration
             using RegistrationType =

@@ -1,195 +1,176 @@
 /**
- * ITK Multi-Modal Registration
- *
- * Main executable for mono-modal and multi-modal rigid registration
- *
- * Usage:
- *   itk_multimodal_register fixed.nii moving.nii output.nrrd [options]
+ * multimodal_reg_main.cpp
  */
 
-#include <cstring>
 #include <iostream>
+#include <memory>
 #include <string>
 
 #include "evaluation/LandmarkEvaluation.h"
 #include "landmarks/LandmarkIO.h"
 #include "registration/MultiModalRegistration.h"
 
+struct CommandLineArgs
+{
+    std::string fixedImagePath;
+    std::string movingImagePath;
+    std::string outputImagePath;
+    std::string mode             = "multi";
+    int         iterations       = 1000;
+    int         pyramidLevels    = 3;
+    double      learningRate     = 0.001;
+    double      relaxationFactor = 0.95;
+    std::string saveTransformPath;
+    std::string fixedLandmarksPath;
+    std::string movingLandmarksPath;
+    std::string evalOutputPath;
+    bool        verbose = false;
+};
+
 void PrintUsage(const char* progName)
 {
-    std::cout << "\nITK Multi-Modal Rigid Registration\n" << std::endl;
-    std::cout << "Usage:" << std::endl;
-    std::cout << "  " << progName << " <fixed> <moving> <output> [options]\n" << std::endl;
+    std::cout << "Usage: " << progName
+              << " <fixed> <moving> <output> --mode <mono|multi> [options]\n";
+    std::exit(1);
+}
 
-    std::cout << "Required Arguments:" << std::endl;
-    std::cout << "  fixed          Fixed image (NIfTI format)" << std::endl;
-    std::cout << "  moving         Moving image (NIfTI format)" << std::endl;
-    std::cout << "  output         Output registered image (.nrrd)" << std::endl;
+CommandLineArgs ParseCommandLine(int argc, char* argv[])
+{
+    CommandLineArgs args;
+    if (argc < 5) {
+        PrintUsage(argv[0]);
+    }
+    args.fixedImagePath  = argv[1];
+    args.movingImagePath = argv[2];
+    args.outputImagePath = argv[3];
 
-    std::cout << "\nOptions:" << std::endl;
-    std::cout << "  --mode MODE              'mono' or 'multi' (default: multi)" << std::endl;
-    std::cout << "  --iterations N           Maximum iterations (default: 1000)" << std::endl;
-    std::cout << "  --pyramid-levels N       Pyramid levels (default: 3)" << std::endl;
-    std::cout << "  --learning-rate R        Learning rate (default: 0.001)" << std::endl;
-    std::cout << "  --save-transform FILE    Save transform (.tfm)" << std::endl;
-    std::cout << "  --fixed-landmarks FILE   Fixed landmarks CSV" << std::endl;
-    std::cout << "  --moving-landmarks FILE  Moving landmarks CSV" << std::endl;
-    std::cout << "  --eval-output FILE       Evaluation results CSV" << std::endl;
-    std::cout << "  --verbose                Print progress" << std::endl;
-    std::cout << "  --help                   Show this help" << std::endl;
-
-    std::cout << "\nExamples:" << std::endl;
-    std::cout << "  # Multi-modal T1-T2" << std::endl;
-    std::cout << "  " << progName << " T1.nii.gz T2.nii.gz output.nrrd --mode multi\n" << std::endl;
-
-    std::cout << "  # Mono-modal with landmarks" << std::endl;
-    std::cout << "  " << progName << " fixed.nii moving.nii output.nrrd --mode mono \\"
-              << std::endl;
-    std::cout << "    --fixed-landmarks fixed_lm.csv --moving-landmarks moving_lm.csv" << std::endl;
+    bool modeSet = false;
+    for (int i = 4; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--mode" && i + 1 < argc) {
+            args.mode = argv[++i];
+            modeSet   = true;
+        } else if (arg == "--iterations" && i + 1 < argc) {
+            args.iterations = std::stoi(argv[++i]);
+        } else if (arg == "--pyramid-levels" && i + 1 < argc) {
+            args.pyramidLevels = std::stoi(argv[++i]);
+        } else if (arg == "--learning-rate" && i + 1 < argc) {
+            args.learningRate = std::stod(argv[++i]);
+        } else if (arg == "--relaxation" && i + 1 < argc) {
+            args.relaxationFactor = std::stod(argv[++i]);
+        } else if (arg == "--save-transform" && i + 1 < argc) {
+            args.saveTransformPath = argv[++i];
+        } else if (arg == "--fixed-landmarks" && i + 1 < argc) {
+            args.fixedLandmarksPath = argv[++i];
+        } else if (arg == "--moving-landmarks" && i + 1 < argc) {
+            args.movingLandmarksPath = argv[++i];
+        } else if (arg == "--eval-output" && i + 1 < argc) {
+            args.evalOutputPath = argv[++i];
+        } else if (arg == "--verbose") {
+            args.verbose = true;
+        }
+    }
+    if (!modeSet) {
+        PrintUsage(argv[0]);
+    }
+    return args;
 }
 
 int main(int argc, char* argv[])
 {
-    if (argc < 4) {
-        PrintUsage(argv[0]);
-        return EXIT_FAILURE;
-    }
+    auto args = ParseCommandLine(argc, argv);
 
-    for (int i = 1; i < argc; ++i) {
-        if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
-            PrintUsage(argv[0]);
-            return EXIT_SUCCESS;
+    try {
+        std::cout << "\n=== Multi-Modal Registration ===" << std::endl;
+        std::cout << "Fixed:  " << args.fixedImagePath << std::endl;
+        std::cout << "Moving: " << args.movingImagePath << std::endl;
+        std::cout << "Output: " << args.outputImagePath << std::endl;
+        std::cout << "Mode:   " << args.mode << "\n" << std::endl;
+
+        // Create registration object - regular C++ class, not smart pointer
+        Registration::MultiModalRegistration registration;
+
+        registration.SetFixedImagePath(args.fixedImagePath);
+        registration.SetMovingImagePath(args.movingImagePath);
+        registration.SetOutputImagePath(args.outputImagePath);
+        registration.SetMaxIterations(args.iterations);
+        registration.SetPyramidLevels(args.pyramidLevels);
+
+        if (args.mode == "mono") {
+            registration.SetRegistrationMode(Registration::RegistrationMode::MONO_MODAL);
+            registration.SetLearningRate(args.learningRate);
+            registration.SetRelaxationFactor(args.relaxationFactor);
+        } else {
+            registration.SetRegistrationMode(Registration::RegistrationMode::MULTI_MODAL);
         }
-    }
 
-    // Required arguments
-    std::string fixedPath  = argv[1];
-    std::string movingPath = argv[2];
-    std::string outputPath = argv[3];
+        if (args.verbose) {
+            registration.EnableVerboseOutput();
+        }
+        if (!args.saveTransformPath.empty()) {
+            registration.SetTransformOutputPath(args.saveTransformPath);
+        }
 
-    // Optional arguments
-    Registration::RegistrationMode       mode = Registration::RegistrationMode::MULTI_MODAL;
-    Registration::RegistrationParameters params;
-    params.maxIterations    = 1000;
-    params.pyramidLevels    = 3;
-    params.learningRate     = 0.001;
-    params.relaxationFactor = 0.95;
-    params.initialRadius    = 7e-05;
-    params.verbose          = false;
+        // Load landmarks if provided
+        Registration::LandmarkListType fixedLandmarks, movingLandmarks;
+        bool                           hasLandmarks = false;
 
-    std::string transformPath;
-    std::string fixedLandmarksPath;
-    std::string movingLandmarksPath;
-    std::string evalOutputPath;
+        if (!args.fixedLandmarksPath.empty() && !args.movingLandmarksPath.empty()) {
+            std::cout << "Loading landmarks..." << std::endl;
+            fixedLandmarks  = Registration::LandmarkIO::ReadLandmarks(args.fixedLandmarksPath);
+            movingLandmarks = Registration::LandmarkIO::ReadLandmarks(args.movingLandmarksPath);
 
-    // Parse options
-    for (int i = 4; i < argc; ++i) {
-        std::string arg = argv[i];
-
-        if (arg == "--mode" && i + 1 < argc) {
-            std::string modeStr = argv[++i];
-            if (modeStr == "mono") {
-                mode = Registration::RegistrationMode::MONO_MODAL;
-            } else if (modeStr == "multi") {
-                mode = Registration::RegistrationMode::MULTI_MODAL;
-            } else {
-                std::cerr << "Error: Invalid mode. Use 'mono' or 'multi'." << std::endl;
-                return EXIT_FAILURE;
+            if (fixedLandmarks.size() != movingLandmarks.size()) {
+                std::cerr << "Error: Landmark count mismatch\n";
+                return 1;
             }
-        } else if (arg == "--iterations" && i + 1 < argc) {
-            params.maxIterations = std::stoi(argv[++i]);
-        } else if (arg == "--pyramid-levels" && i + 1 < argc) {
-            params.pyramidLevels = std::stoi(argv[++i]);
-        } else if (arg == "--learning-rate" && i + 1 < argc) {
-            params.learningRate = std::stod(argv[++i]);
-        } else if (arg == "--save-transform" && i + 1 < argc) {
-            transformPath = argv[++i];
-        } else if (arg == "--fixed-landmarks" && i + 1 < argc) {
-            fixedLandmarksPath = argv[++i];
-        } else if (arg == "--moving-landmarks" && i + 1 < argc) {
-            movingLandmarksPath = argv[++i];
-        } else if (arg == "--eval-output" && i + 1 < argc) {
-            evalOutputPath = argv[++i];
-        } else if (arg == "--verbose") {
-            params.verbose = true;
+
+            std::cout << "  Loaded " << fixedLandmarks.size() << " pairs\n" << std::endl;
+            hasLandmarks = true;
+
+            auto beforeResult = Registration::LandmarkEvaluation::EvaluateRegistration(
+                fixedLandmarks, movingLandmarks, nullptr);
+
+            std::cout << "Before TRE: " << beforeResult.meanError << " mm\n" << std::endl;
         }
-    }
 
-    // Print configuration
-    std::cout << "\n========================================" << std::endl;
-    std::cout << "ITK Multi-Modal Registration" << std::endl;
-    std::cout << "========================================\n" << std::endl;
+        // Perform registration
+        std::cout << "Starting registration..." << std::endl;
+        registration.Execute();
+        std::cout << "Registration complete!\n" << std::endl;
 
-    std::cout << "Configuration:" << std::endl;
-    std::cout << "  Fixed:      " << fixedPath << std::endl;
-    std::cout << "  Moving:     " << movingPath << std::endl;
-    std::cout << "  Output:     " << outputPath << std::endl;
-    std::cout << "  Mode:       "
-              << (mode == Registration::RegistrationMode::MONO_MODAL ? "Mono-modal" : "Multi-modal")
-              << std::endl;
-    std::cout << "  Iterations: " << params.maxIterations << std::endl;
-    std::cout << "  Pyramid:    " << params.pyramidLevels << std::endl;
+        // Evaluate with landmarks
+        if (hasLandmarks) {
+            auto transform   = registration.GetFinalTransform();
+            auto afterResult = Registration::LandmarkEvaluation::EvaluateRegistration(
+                fixedLandmarks, movingLandmarks, transform.GetPointer());
 
-    // Create registration
-    Registration::MultiModalRegistration registration;
-    registration.SetMode(mode);
-    registration.SetParameters(params);
+            std::cout << "After TRE: " << afterResult.meanError << " mm" << std::endl;
 
-    // Load images
-    if (!registration.LoadImages(fixedPath, movingPath)) {
-        return EXIT_FAILURE;
-    }
+            auto beforeResult = Registration::LandmarkEvaluation::EvaluateRegistration(
+                fixedLandmarks, movingLandmarks, nullptr);
 
-    // Load landmarks if provided
-    Registration::LandmarkListType fixedLandmarks, movingLandmarks;
-    bool                           hasLandmarks = false;
+            std::cout << "Improvement: " << (beforeResult.meanError - afterResult.meanError)
+                      << " mm\n"
+                      << std::endl;
 
-    if (!fixedLandmarksPath.empty() && !movingLandmarksPath.empty()) {
-        fixedLandmarks  = Registration::LandmarkIO::ReadLandmarks(fixedLandmarksPath);
-        movingLandmarks = Registration::LandmarkIO::ReadLandmarks(movingLandmarksPath);
-
-        if (fixedLandmarks.size() == movingLandmarks.size() && !fixedLandmarks.empty()) {
-            hasLandmarks       = true;
-            auto initialResult = Registration::LandmarkEvaluation::ComputeInitialError(
-                fixedLandmarks, movingLandmarks);
-            Registration::LandmarkEvaluation::PrintResults(initialResult, "Before Registration");
+            if (!args.evalOutputPath.empty()) {
+                Registration::LandmarkEvaluation::SaveReport(args.evalOutputPath, beforeResult,
+                                                             afterResult);
+                std::cout << "Saved: " << args.evalOutputPath << std::endl;
+            }
         }
+
+        std::cout << "\n=== Complete ===" << std::endl;
+        std::cout << "Output: " << args.outputImagePath << std::endl;
+
+        return 0;
+
+    } catch (const itk::ExceptionObject& e) {
+        std::cerr << "\nITK Error: " << e << std::endl;
+        return 1;
+    } catch (const std::exception& e) {
+        std::cerr << "\nError: " << e.what() << std::endl;
+        return 1;
     }
-
-    // Register
-    auto result = registration.Register();
-
-    if (!result.success) {
-        std::cerr << "Registration failed: " << result.message << std::endl;
-        return EXIT_FAILURE;
-    }
-
-    // Evaluate with landmarks
-    if (hasLandmarks) {
-        auto finalResult = Registration::LandmarkEvaluation::EvaluateRegistration(
-            fixedLandmarks, movingLandmarks, result.transform);
-        Registration::LandmarkEvaluation::PrintResults(finalResult, "After Registration");
-
-        if (!evalOutputPath.empty()) {
-            auto initialResult = Registration::LandmarkEvaluation::ComputeInitialError(
-                fixedLandmarks, movingLandmarks);
-            Registration::LandmarkEvaluation::SaveResultsToCSV(evalOutputPath, initialResult,
-                                                               finalResult);
-        }
-    }
-
-    // Save results
-    if (!registration.SaveRegisteredImage(outputPath, result.transform)) {
-        return EXIT_FAILURE;
-    }
-
-    if (!transformPath.empty()) {
-        registration.SaveTransform(transformPath, result.transform);
-    }
-
-    std::cout << "\n========================================" << std::endl;
-    std::cout << "Registration completed successfully!" << std::endl;
-    std::cout << "========================================\n" << std::endl;
-
-    return EXIT_SUCCESS;
 }
