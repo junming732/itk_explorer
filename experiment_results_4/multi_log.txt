@@ -1,0 +1,47 @@
+
+=== Multi-Modal Registration ===
+Fixed:  /home/louisama778_gmail_com/IXI-T1-images/IXI002-Guys-0828-T1.nii.gz
+Moving: /home/louisama778_gmail_com/IXI-T2-images/IXI002-Guys-0828-T2.nii.gz
+Output: experiment_results/multi_registered.nrrd
+Mode:   multi
+
+Loading images...
+Loaded fixed image: /home/louisama778_gmail_com/IXI-T1-images/IXI002-Guys-0828-T1.nii.gz
+  Size: [256, 256, 150]
+Loaded moving image: /home/louisama778_gmail_com/IXI-T2-images/IXI002-Guys-0828-T2.nii.gz
+  Size: [256, 256, 130]
+Starting registration...
+
+=== Starting Multi-Modal Registration ===
+Metric: Mattes Mutual Information
+Optimizer: One Plus One Evolutionary
+
+Initial transform parameters:
+  Center: [-0.75988, -12.6442, 21.2384]
+  Translation: [-0.46875, 6.96733, 11.8644]
+Pyramid levels: 3
+Max iterations: 300
+Initial radius: 7e-05
+
+=== Registration Results ===
+Final metric value (MI): -0.383932
+Elapsed time: 391.665 seconds
+
+Final Transform Parameters:
+  Rotation angles (radians):
+    X: -0.0194257
+    Y: 0.000626488
+    Z: -0.00176942
+  Translation: [-0.472025, 6.96547, 11.8644]
+Registration complete!
+  Iterations: 300
+  Final metric: -0.383932
+  Time: 391.665 seconds
+  Quality: ✓ SUCCESS (MI is negative)
+
+Saving registered image...
+Saved registered image to: experiment_results/multi_registered.nrrd
+Saved registered image to: experiment_results/multi_registered.nrrd
+
+=== Complete ===
+Output: experiment_results/multi_registered.nrrd
