@@ -17,15 +17,21 @@ mkdir -p "$RESULTS_DIR"
 T1_FIXED="$HOME/IXI-T1-images/IXI002-Guys-0828-T1.nii.gz"
 T2_MOVING="$HOME/IXI-T2-images/IXI002-Guys-0828-T2.nii.gz"
 
+# NOTE: We do NOT use a different patient for mono-modal!
+# Mono-modal uses motion-corrupted version of SAME patient
+
 echo "=== PART 1: Motion Correction Demo ==="
 echo ""
 
 # Step 1: Simulate motion on T1
 echo "[1/5] Simulating patient motion..."
+echo "  Using realistic motion parameters:"
+echo "    Translation: [2.0, -2.5, 1.5] mm"
+echo "    Rotation: [0.03, -0.02, 0.01] rad (~1.7°, -1.1°, 0.6°)"
 ./build/bin/simulate_motion \
     "$T1_FIXED" \
     "$RESULTS_DIR/T1_with_motion.nrrd" \
-    3.5 -4.2 2.8 0.05 -0.03 0.02
+    2.0 -2.5 1.5 0.03 -0.02 0.01
 
 echo ""
 echo "[2/5] Extracting slices (before motion correction)..."
@@ -40,15 +46,12 @@ echo "[2/5] Extracting slices (before motion correction)..."
 # Step 2: Correct motion with registration
 echo ""
 echo "[3/5] Correcting motion with registration..."
+echo "  Using optimized 3D parameters (LR=1.0, Relaxation=0.5)"
 ./build/bin/itk_multimodal_register \
     "$T1_FIXED" \
     "$RESULTS_DIR/T1_with_motion.nrrd" \
     "$RESULTS_DIR/T1_motion_corrected.nrrd" \
     --mode mono \
-    --iterations 200 \
-    --pyramid-levels 3 \
-    --learning-rate 1.0 \
-    --relaxation 0.5 \
     --verbose 2>&1 | tee "$RESULTS_DIR/motion_correction_log.txt"
 
 echo ""
@@ -76,8 +79,6 @@ echo "[4/5] Registering T1 to T2..."
     "$T2_MOVING" \
     "$RESULTS_DIR/multi_registered.nrrd" \
     --mode multi \
-    --iterations 300 \
-    --pyramid-levels 3 \
     --verbose 2>&1 | tee "$RESULTS_DIR/multi_log.txt"
 
 echo ""
@@ -117,13 +118,14 @@ Purpose: Demonstrate ability to correct simulated patient motion
 Method: Mono-modal rigid registration (T1 → T1)
 
 Simulated Motion:
-  - Translation: [3.5, -4.2, 2.8] mm
-  - Rotation: [0.05, -0.03, 0.02] rad (~2.9°, -1.7°, 1.1°)
+  - Translation: [2.0, -2.5, 1.5] mm
+  - Rotation: [0.03, -0.02, 0.01] rad (~1.7°, -1.1°, 0.6°)
+  - Magnitude: Realistic patient motion during MRI scan
 
 Results:
   - Final Metric: $MOTION_METRIC (Mean Squares)
   - Computation Time: ${MOTION_TIME}s
-  - Status: Check metric (< 2000 = success)
+  - Status: See quality indicator above (target: <1000 for excellent)
 
 Visualization:
   - Original: 1_original.png
@@ -145,7 +147,7 @@ Parameters:
 Results:
   - Final Metric: $MULTI_METRIC (Negative MI, closer to 0 = better)
   - Computation Time: ${MULTI_TIME}s
-  - Status: Check metric (< 0 = success)
+  - Status: See quality indicator above (negative MI = success)
 
 Visualization:
   - T2 Before: 4_T2_before.png
