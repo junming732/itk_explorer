@@ -38,6 +38,7 @@ add_subdirectory(src/visualization)
 add_subdirectory(src/registration)
 add_subdirectory(src/evaluation)
 add_subdirectory(src/landmarks)
+add_subdirectory(src/utilities)
 
 # Future modules:
 # add_subdirectory(src/filters)
