@@ -22,6 +22,7 @@ int main(int argc, char* argv[])
     using InputPixelType  = float;
     using OutputPixelType = unsigned char;
     using InputImageType  = itk::Image<InputPixelType, 3>;
+    using SliceImageType  = itk::Image<InputPixelType, 2>;  // ← KEEP FLOAT for slice!
     using OutputImageType = itk::Image<OutputPixelType, 2>;
 
     // Read 3D image
@@ -42,6 +43,12 @@ int main(int argc, char* argv[])
     std::cout << "Image size: " << size[0] << " x " << size[1] << " x " << size[2] << std::endl;
     std::cout << "Extracting slice " << sliceNum << " along axis " << axis << std::endl;
 
+    // Validate slice number
+    if (sliceNum < 0 || sliceNum >= static_cast<int>(size[axis])) {
+        std::cerr << "Error: Slice " << sliceNum << " out of range [0, " << size[axis] - 1 << "]\n";
+        return 1;
+    }
+
     // Set up extraction region - collapse one dimension
     InputImageType::RegionType extractionRegion = region;
     InputImageType::SizeType   extractSize      = size;
@@ -54,16 +61,18 @@ int main(int argc, char* argv[])
     extractionRegion.SetSize(extractSize);
     extractionRegion.SetIndex(extractIndex);
 
-    // Extract filter with direction collapse
-    using ExtractFilterType = itk::ExtractImageFilter<InputImageType, OutputImageType>;
-    auto extractor          = ExtractFilterType::New();
+    // Extract filter - KEEP FLOAT TYPE!
+    using ExtractFilterType = itk::ExtractImageFilter<InputImageType, SliceImageType>;
+    //                                                 float 3D  →  float 2D  ✓ CORRECT!
+    auto extractor = ExtractFilterType::New();
     extractor->SetInput(image);
     extractor->SetExtractionRegion(extractionRegion);
-    extractor->SetDirectionCollapseToIdentity();  // Critical for 3D→2D
+    extractor->SetDirectionCollapseToIdentity();
 
-    // Rescale to 0-255 for PNG
-    using RescaleFilterType = itk::RescaleIntensityImageFilter<OutputImageType, OutputImageType>;
-    auto rescaler           = RescaleFilterType::New();
+    // NOW rescale float 2D → unsigned char 2D
+    using RescaleFilterType = itk::RescaleIntensityImageFilter<SliceImageType, OutputImageType>;
+    //                                                          float 2D  →  uchar 2D  ✓ CORRECT!
+    auto rescaler = RescaleFilterType::New();
     rescaler->SetInput(extractor->GetOutput());
     rescaler->SetOutputMinimum(0);
     rescaler->SetOutputMaximum(255);
